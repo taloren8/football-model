@@ -247,7 +247,7 @@ def קבל_דעה_שנייה(קבוצת_בית, קבוצת_חוץ):
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
     if isinstance(data, dict) and data.get("error"): return None
-תחזיות = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+        תחזיות = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
     def נרמל(שם): return שם.lower().strip()
     בית_נ = נרמל(קבוצת_בית)
     חוץ_נ = נרמל(קבוצת_חוץ)
