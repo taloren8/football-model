@@ -247,7 +247,7 @@ def קבל_דעה_שנייה(קבוצת_בית, קבוצת_חוץ):
     response = requests.get(url, headers=headers, params=params)
     data = response.json()
     if isinstance(data, dict) and data.get("error"): return None
-    תחזיות = data if isinstance(data, list) else data.get("data", [])
+תחזיות = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
     def נרמל(שם): return שם.lower().strip()
     בית_נ = נרמל(קבוצת_בית)
     חוץ_נ = נרמל(קבוצת_חוץ)
@@ -319,7 +319,16 @@ with st.spinner("טוען נתונים..."):
     "Atalanta": 499, "Lazio": 487, "AS Roma": 497, "Fiorentina": 502,
     "Bologna": 500, "Torino": 503, "Lecce": 867, "Udinese": 494,
     "Genoa": 508, "Cagliari": 488, "Hellas Verona": 504, "Empoli": 511,
-    "Venezia": 517, "Como": 1580, "Parma": 498,
+    "Venezia": 517, "Como": 1580, "Parma": 498,"PEC Zwolle": 193, "Ajax": 194, "Willem II": 195,
+    "Excelsior": 196, "PSV Eindhoven": 197, "AZ Alkmaar": 201,
+    "Groningen": 202, "NAC Breda": 203, "Fortuna Sittard": 205,
+    "Heracles": 206, "Utrecht": 207, "Feyenoord": 209,
+    "Heerenveen": 210, "GO Ahead Eagles": 410, "NEC Nijmegen": 413,
+    "Twente": 415, "Sparta Rotterdam": 426,"Hapoel Beer Sheva": 563, "Maccabi Tel Aviv": 604, "Beitar Jerusalem": 657,
+"Hapoel Haifa": 2253, "Maccabi Haifa": 4195, "Bnei Sakhnin": 4481,
+"Hapoel Katamon": 4486, "Hapoel Petah Tikva": 4488, "Hapoel Tel Aviv": 4501,
+"Maccabi Netanya": 4505, "Ashdod": 4507, "Ironi Kiryat Shmona": 4510,
+"Ironi Tiberias": 6181, "Maccabi Bnei Raina": 6186,
 }
 
 # בחירה
