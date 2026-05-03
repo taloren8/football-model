@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
+import statistics
 
 st.set_page_config(
     page_title="⚽ מנתח משחקי כדורגל",
@@ -10,7 +11,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# RTL
 st.markdown("""
 <style>
     .stApp { direction: rtl; }
@@ -19,47 +19,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================
-# הגדרות
-# ============================================
 API_KEY = st.secrets["API_KEY"]
 RAPIDAPI_KEY = st.secrets["RAPIDAPI_KEY"]
 HEADERS = {"x-apisports-key": API_KEY}
 SEASON = 2025
 
 LEAGUES = {
-    "Premier League": 39,
-    "La Liga": 140,
-    "Bundesliga": 78,
-    "Serie A": 135,
-    "Ligue 1": 61,
-    "Eredivisie": 88,
-    "Ligat Ha'al": 383
+    "Premier League": 39, "La Liga": 140, "Bundesliga": 78,
+    "Serie A": 135, "Ligue 1": 61, "Eredivisie": 88, "Ligat Ha'al": 383
 }
 
 ערים = {
-    "Premier League": "London",
-    "La Liga": "Madrid",
-    "Bundesliga": "Munich",
-    "Serie A": "Milan",
-    "Ligue 1": "Paris",
-    "Eredivisie": "Amsterdam",
-    "Ligat Ha'al": "Tel Aviv"
+    "Premier League": "London", "La Liga": "Madrid", "Bundesliga": "Munich",
+    "Serie A": "Milan", "Ligue 1": "Paris", "Eredivisie": "Amsterdam", "Ligat Ha'al": "Tel Aviv"
 }
 
 היום = datetime.now().strftime("%Y-%m-%d")
 לפני_חודשיים = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
 
-# ============================================
-# פונקציות
-# ============================================
 @st.cache_data(ttl=3600)
 def טען_נתונים():
     all_matches = []
     for league_name, league_id in LEAGUES.items():
         url = "https://v3.football.api-sports.io/fixtures"
-        params = {"league": league_id, "season": SEASON,
-                  "from": לפני_חודשיים, "to": היום, "status": "FT"}
+        params = {"league": league_id, "season": SEASON, "from": לפני_חודשיים, "to": היום, "status": "FT"}
         response = requests.get(url, headers=HEADERS, params=params)
         data = response.json()
         if data.get("errors"): continue
@@ -110,15 +93,13 @@ def חשב_מומנטום(קבוצה, df, num_matches=5):
     בית["תוצאה_קבוצה"] = בית["תוצאה"].map({"בית":"ניצחון","תיקו":"תיקו","חוץ":"הפסד"})
     חוץ = df_ליגה[df_ליגה["חוץ"] == קבוצה].copy()
     חוץ["תוצאה_קבוצה"] = חוץ["תוצאה"].map({"חוץ":"ניצחון","תיקו":"תיקו","בית":"הפסד"})
-    כל_משחקים = pd.concat([בית[["תאריך","תוצאה_קבוצה"]],
-                             חוץ[["תאריך","תוצאה_קבוצה"]]]).sort_values("תאריך").tail(num_matches)
+    כל_משחקים = pd.concat([בית[["תאריך","תוצאה_קבוצה"]], חוץ[["תאריך","תוצאה_קבוצה"]]]).sort_values("תאריך").tail(num_matches)
     if len(כל_משחקים) < 3:
         בית2 = df[df["בית"] == קבוצה].copy()
         בית2["תוצאה_קבוצה"] = בית2["תוצאה"].map({"בית":"ניצחון","תיקו":"תיקו","חוץ":"הפסד"})
         חוץ2 = df[df["חוץ"] == קבוצה].copy()
         חוץ2["תוצאה_קבוצה"] = חוץ2["תוצאה"].map({"חוץ":"ניצחון","תיקו":"תיקו","בית":"הפסד"})
-        כל_משחקים = pd.concat([בית2[["תאריך","תוצאה_קבוצה"]],
-                                 חוץ2[["תאריך","תוצאה_קבוצה"]]]).sort_values("תאריך").tail(num_matches)
+        כל_משחקים = pd.concat([בית2[["תאריך","תוצאה_קבוצה"]], חוץ2[["תאריך","תוצאה_קבוצה"]]]).sort_values("תאריך").tail(num_matches)
     משקולות = list(range(1, len(כל_משחקים) + 1))
     נקודות_משוקללות = משקל_מקסימום = 0
     תוצאות_רשימה = []
@@ -285,13 +266,95 @@ def זהה_משבר(קבוצה, df):
         return True, "⚠️ ירידה חדה — בדוק שינויים בקבוצה"
     return False, ""
 
-# ============================================
-# ממשק Streamlit
-# ============================================
+def חשב_רמזור(ת, דעה_שנייה=None, id_בית=None, id_חוץ=None, ליגה=None):
+    # רמזור תוצאה
+    הפרש = abs(ת["ציון_בית"] - ת["ציון_חוץ"])
+    יש_הסכמה = False
+    if דעה_שנייה:
+        pred = דעה_שנייה.get("תחזית_מספר", "")
+        if pred == "1" and ת["ציון_בית"] > ת["ציון_חוץ"]: יש_הסכמה = True
+        elif pred == "2" and ת["ציון_חוץ"] > ת["ציון_בית"]: יש_הסכמה = True
+        elif pred == "X" and "תיקו" in ת["המלצה"]: יש_הסכמה = True
+    האם_תיקו = "תיקו" in ת["המלצה"]
+    if האם_תיקו:
+        רמזור_תוצאה, סיבת_תוצאה = "🔴", "תיקו — קשה לחיזוי"
+    elif הפרש >= 20 and "גבוה" in ת["ביטחון"] and יש_הסכמה:
+        רמזור_תוצאה, סיבת_תוצאה = "🟢", f"הפרש {הפרש} + ביטחון גבוה + דעה שנייה מסכימה"
+    elif הפרש >= 15 and ("גבוה" in ת["ביטחון"] or יש_הסכמה):
+        רמזור_תוצאה, סיבת_תוצאה = "🟡", f"הפרש {הפרש} + {'ביטחון גבוה' if 'גבוה' in ת['ביטחון'] else 'דעה שנייה מסכימה'}"
+    else:
+        רמזור_תוצאה, סיבת_תוצאה = "🔴", f"הפרש {הפרש} — לא מספיק ברור"
+
+    # רמזור Over/Under
+    התפלגות = ת.get("התפלגות")
+    סה_כ_צפוי = ת.get("סה_כ_צפוי")
+    if התפלגות and סה_כ_צפוי:
+        הכיוון_החזק = max(התפלגות["0-1"], התפלגות["2-3"] + התפלגות["4+"])
+        if הכיוון_החזק >= 70 and (סה_כ_צפוי <= 1.5 or סה_כ_צפוי >= 3.5):
+            רמזור_ou, סיבת_ou = "🟢", f"התפלגות {הכיוון_החזק}% + ממוצע {סה_כ_צפוי} ברור"
+        elif הכיוון_החזק >= 55:
+            רמזור_ou, סיבת_ou = "🟡", f"התפלגות {הכיוון_החזק}% — בינוני"
+        else:
+            רמזור_ou, סיבת_ou = "🔴", f"התפלגות לא ברורה ({הכיוון_החזק}%)"
+    else:
+        רמזור_ou, סיבת_ou = "🔴", "אין מספיק נתונים"
+
+    # רמזור קרנות
+    if id_בית and id_חוץ and ליגה:
+        league_id = LEAGUES.get(ליגה, 39)
+        def קבל_רשימת_קרנות(team_id, lg_id):
+            url = "https://v3.football.api-sports.io/fixtures"
+            params = {"team": team_id, "league": lg_id, "season": SEASON, "last": 5, "status": "FT"}
+            response = requests.get(url, headers=HEADERS, params=params)
+            data = response.json()
+            if data.get("errors") or not data["response"]: return []
+            קרנות_רשימה = []
+            for משחק in data["response"][:5]:
+                fixture_id = משחק["fixture"]["id"]
+                url_סטט = "https://v3.football.api-sports.io/fixtures/statistics"
+                response_סטט = requests.get(url_סטט, headers=HEADERS, params={"fixture": fixture_id})
+                data_סטט = response_סטט.json()
+                if not data_סטט["response"]: continue
+                for קבוצה_סטט in data_סטט["response"]:
+                    if קבוצה_סטט["team"]["id"] == team_id:
+                        for סטטיסטיקה in קבוצה_סטט["statistics"]:
+                            if סטטיסטיקה["type"] == "Corner Kicks":
+                                קרנות_רשימה.append(int(סטטיסטיקה["value"] or 0))
+            return קרנות_רשימה
+
+        רשימת_בית = קבל_רשימת_קרנות(id_בית, league_id)
+        רשימת_חוץ = קבל_רשימת_קרנות(id_חוץ, league_id)
+
+        def סטייה(רשימה):
+            if len(רשימה) < 2: return 999
+            try: return round(statistics.stdev(רשימה), 1)
+            except: return 999
+
+        סטיית_בית = סטייה(רשימת_בית)
+        סטיית_חוץ = סטייה(רשימת_חוץ)
+        סטייה_ממוצעת = round((סטיית_בית + סטיית_חוץ) / 2, 1) if סטיית_בית != 999 and סטיית_חוץ != 999 else 999
+        קרנות_צפויות = ת.get("קרנות_סה_כ", 0) or 0
+
+        if סטייה_ממוצעת == 999:
+            רמזור_קרנות, סיבת_קרנות = "🔴", "אין מספיק נתונים בליגה זו"
+        elif סטייה_ממוצעת <= 2.0 and (קרנות_צפויות < 8 or קרנות_צפויות > 12):
+            רמזור_קרנות, סיבת_קרנות = "🟢", f"עקבי (סטייה {סטייה_ממוצעת}) + ממוצע ברור {קרנות_צפויות}"
+        elif סטייה_ממוצעת <= 3.5:
+            רמזור_קרנות, סיבת_קרנות = "🟡", f"בינוני עקבי (סטייה {סטייה_ממוצעת})"
+        else:
+            רמזור_קרנות, סיבת_קרנות = "🔴", f"לא עקבי (סטייה {סטייה_ממוצעת})"
+    else:
+        רמזור_קרנות, סיבת_קרנות = "🔴", "ID חסר"
+
+    return {
+        "תוצאה": {"רמזור": רמזור_תוצאה, "סיבה": סיבת_תוצאה},
+        "over_under": {"רמזור": רמזור_ou, "סיבה": סיבת_ou},
+        "קרנות": {"רמזור": רמזור_קרנות, "סיבה": סיבת_קרנות},
+    }
+
 st.title("⚽ מנתח משחקי כדורגל")
 st.markdown(f"*נתונים עדכניים — {לפני_חודשיים} עד {היום}*")
 
-# טעינת נתונים
 with st.spinner("טוען נתונים..."):
     df = טען_נתונים()
     טבלאות = {ל: קבל_מצב_טבלה(league_id) for ל, league_id in LEAGUES.items()}
@@ -318,7 +381,7 @@ with st.spinner("טוען נתונים..."):
     "Borussia Mönchengladbach": 163, "Union Berlin": 164, "FC Augsburg": 170,
     "VfL Wolfsburg": 161, "FSV Mainz 05": 178, "Holstein Kiel": 176,
     "FC St. Pauli": 182, "VfL Bochum": 166, "1. FC Heidenheim": 180,
-     # איטליה
+    # איטליה
     "Inter": 505, "AC Milan": 489, "Juventus": 496, "Napoli": 492,
     "Atalanta": 499, "Lazio": 487, "AS Roma": 497, "Fiorentina": 502,
     "Bologna": 500, "Torino": 503, "Lecce": 867, "Udinese": 494,
@@ -347,7 +410,6 @@ with st.spinner("טוען נתונים..."):
     "Ironi Tiberias": 6181, "Maccabi Bnei Raina": 6186,
 }
 
-# בחירה
 col1, col2, col3 = st.columns(3)
 with col1:
     ליגה = st.selectbox("ליגה", list(קבוצות_לפי_ליגה.keys()))
@@ -361,7 +423,7 @@ if st.button("🔍 נתח משחק", type="primary", use_container_width=True):
     id_בית = קבוצות_ids.get(קבוצת_בית)
     id_חוץ = קבוצות_ids.get(קבוצת_חוץ)
     league_id = LEAGUES[ליגה]
-    
+
     with st.spinner("מנתח..."):
         מומנטום_בית = חשב_מומנטום(קבוצת_בית, df)
         מומנטום_חוץ = חשב_מומנטום(קבוצת_חוץ, df)
@@ -383,14 +445,14 @@ if st.button("🔍 נתח משחק", type="primary", use_container_width=True):
         משבר_חוץ, הודעת_משבר_חוץ = זהה_משבר(קבוצת_חוץ, df)
         חדשות_בית = קבל_חדשות(קבוצת_בית)
         חדשות_חוץ = קבל_חדשות(קבוצת_חוץ)
-        
+
         הפרש = ציון_בית - ציון_חוץ
         נטייה_לתיקו = 0
         if h2h and h2h["תיקו"] >= 3: נטייה_לתיקו += 15
         if (40 < ציון_בית < 70 and 40 < ציון_חוץ < 70): נטייה_לתיקו += 10
         if abs(הפרש) < 8: נטייה_לתיקו += 10
         סף = max(5, 18 - נטייה_לתיקו)
-        
+
         if הפרש > סף:
             המלצה = f"ניצחון {קבוצת_בית}"
             ביטחון = "גבוה 🔥" if הפרש > 25 else "בינוני ⚡"
@@ -403,8 +465,16 @@ if st.button("🔍 נתח משחק", type="primary", use_container_width=True):
             המלצה = "תיקו סביר"
             ביטחון = "בינוני ⚡"
             צבע = "orange"
-        
-        # בדיקת הסכמה
+
+        if התפלגות and התפלגות["0-1"] >= 50:
+            over_under = "Under 2.5 🔒"
+        elif התפלגות and (התפלגות["2-3"] + התפלגות["4+"]) >= 60:
+            over_under = "Over 2.5 ⚽"
+        elif סה_כ_צפוי and סה_כ_צפוי > 2.5:
+            over_under = "Over 2.5 ⚽"
+        else:
+            over_under = "Under 2.5 🔒"
+
         הסכמה = False
         if דעה_שנייה:
             pred = דעה_שנייה["תחזית_מספר"]
@@ -413,12 +483,19 @@ if st.button("🔍 נתח משחק", type="primary", use_container_width=True):
             elif pred == "X" and "תיקו" in המלצה: הסכמה = True
         if הסכמה and "גבוה" in ביטחון: ביטחון = "גבוה מאוד 🔥🔥"
 
-    # תצוגה
+        ת_לרמזור = {
+            "ציון_בית": ציון_בית, "ציון_חוץ": ציון_חוץ,
+            "ביטחון": ביטחון, "המלצה": המלצה,
+            "התפלגות": התפלגות, "סה_כ_צפוי": סה_כ_צפוי,
+            "קרנות_סה_כ": קרנות_סה_כ
+        }
+        רמזור = חשב_רמזור(ת_לרמזור, דעה_שנייה, id_בית, id_חוץ, ליגה)
+
     st.markdown("---")
     st.subheader(f"🏟️ {קבוצת_בית} נגד {קבוצת_חוץ} | {ליגה}")
-    
+
     col_בית, col_חוץ = st.columns(2)
-    
+
     with col_בית:
         st.markdown(f"### 📈 {קבוצת_בית}")
         st.metric("ציון סופי", f"{ציון_בית}%", f"מומנטום {מומנטום_בית['מומנטום']}%")
@@ -434,7 +511,7 @@ if st.button("🔍 נתח משחק", type="primary", use_container_width=True):
             with st.expander("📰 חדשות"):
                 for ח in חדשות_בית:
                     st.write(f"• {ח[:100]}")
-    
+
     with col_חוץ:
         st.markdown(f"### 📉 {קבוצת_חוץ}")
         st.metric("ציון סופי", f"{ציון_חוץ}%", f"מומנטום {מומנטום_חוץ['מומנטום']}%")
@@ -450,37 +527,43 @@ if st.button("🔍 נתח משחק", type="primary", use_container_width=True):
             with st.expander("📰 חדשות"):
                 for ח in חדשות_חוץ:
                     st.write(f"• {ח[:100]}")
-    
+
     st.markdown("---")
-    
+
     col1, col2, col3 = st.columns(3)
     with col1:
         if h2h:
             st.info(f"🔄 H2H: {h2h['ניצחונות_בית']}W / {h2h['תיקו']}D / {h2h['ניצחונות_חוץ']}L | ממוצע {h2h['ממוצע_שערים']} שערים")
     with col2:
-            if סה_כ_צפוי:
-                if התפלגות and התפלגות["0-1"] >= 50:
-                    over_under = "Under 2.5 🔒"
-                elif התפלגות and (התפלגות["2-3"] + התפלגות["4+"]) >= 60:
-                    over_under = "Over 2.5 ⚽"
-                elif סה_כ_צפוי > 2.5:
-                    over_under = "Over 2.5 ⚽"
-                else:
-                    over_under = "Under 2.5 🔒"
-                st.info(f"⚽ שערים: {סה_כ_צפוי} → {טווח_שערים} | {over_under}")
-                if התפלגות:
-                    st.caption(f"0-1: {התפלגות['0-1']}% | 2-3: {התפלגות['2-3']}% | 4+: {התפלגות['4+']}%")
+        if סה_כ_צפוי:
+            st.info(f"⚽ שערים: {סה_כ_צפוי} → {טווח_שערים} | {over_under}")
+            if התפלגות:
+                st.caption(f"0-1: {התפלגות['0-1']}% | 2-3: {התפלגות['2-3']}% | 4+: {התפלגות['4+']}%")
     with col3:
         if קרנות_סה_כ:
             st.info(f"🚩 קרנות: {קרנות_סה_כ} → {טווח_קרנות}")
-    
+
+    st.markdown("---")
+    st.subheader("🚦 רמזור")
+    col_ר1, col_ר2, col_ר3 = st.columns(3)
+    with col_ר1:
+        st.metric("🎯 תוצאה", רמזור["תוצאה"]["רמזור"])
+        st.caption(רמזור["תוצאה"]["סיבה"])
+    with col_ר2:
+        st.metric("⚽ Over/Under", רמזור["over_under"]["רמזור"])
+        st.caption(רמזור["over_under"]["סיבה"])
+    with col_ר3:
+        st.metric("🚩 קרנות", רמזור["קרנות"]["רמזור"])
+        st.caption(רמזור["קרנות"]["סיבה"])
+
+    st.markdown("---")
+
     if דעה_שנייה:
         if הסכמה:
             st.success(f"🔮 דעה שנייה: ✅ מסכימים! | {דעה_שנייה['תחזית']} | יחסים: בית {דעה_שנייה['מכרז_בית']} | תיקו {דעה_שנייה['מכרז_תיקו']} | חוץ {דעה_שנייה['מכרז_חוץ']}")
         else:
             st.warning(f"🔮 דעה שנייה: ⚠️ חלוקי דעות | {דעה_שנייה['תחזית']} | יחסים: בית {דעה_שנייה['מכרז_בית']} | תיקו {דעה_שנייה['מכרז_תיקו']} | חוץ {דעה_שנייה['מכרז_חוץ']}")
-    
-    st.markdown("---")
+
     if צבע == "green":
         st.success(f"🎯 המלצה: {המלצה} | 💪 ביטחון: {ביטחון}")
     else:
