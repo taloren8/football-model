@@ -318,12 +318,13 @@ with st.spinner("טוען נתונים..."):
     "Borussia Mönchengladbach": 163, "Union Berlin": 164, "FC Augsburg": 170,
     "VfL Wolfsburg": 161, "FSV Mainz 05": 178, "Holstein Kiel": 176,
     "FC St. Pauli": 182, "VfL Bochum": 166, "1. FC Heidenheim": 180,
-    # איטליה
+     # איטליה
     "Inter": 505, "AC Milan": 489, "Juventus": 496, "Napoli": 492,
     "Atalanta": 499, "Lazio": 487, "AS Roma": 497, "Fiorentina": 502,
     "Bologna": 500, "Torino": 503, "Lecce": 867, "Udinese": 494,
-    "Genoa": 508, "Cagliari": 488, "Hellas Verona": 504, "Empoli": 511,
-    "Venezia": 517, "Como": 1580, "Parma": 498,
+    "Genoa": 495, "Cagliari": 490, "Hellas Verona": 504,
+    "Sassuolo": 488, "Como": 895, "Parma": 523,
+    "Cremonese": 520, "Pisa": 801,
     # צרפת
     "Angers": 77, "Lille": 79, "Lyon": 80, "Marseille": 81,
     "Nantes": 83, "Nice": 84, "Paris Saint Germain": 85, "Monaco": 91,
