@@ -299,36 +299,51 @@ with st.spinner("טוען נתונים..."):
 קבוצות_לפי_ליגה = {ל: sorted(df[df["ליגה"] == ל]["בית"].unique().tolist()) for ל in LEAGUES.keys()}
 
 קבוצות_ids = {
+    # אנגליה
     "Liverpool": 40, "Arsenal": 42, "Manchester City": 50, "Chelsea": 49,
     "Tottenham": 47, "Manchester United": 33, "Newcastle": 34, "Aston Villa": 66,
     "Brighton": 51, "West Ham": 48, "Wolves": 39, "Crystal Palace": 52,
     "Fulham": 36, "Brentford": 55, "Nottingham Forest": 65, "Everton": 45,
     "Leicester": 46, "Southampton": 41, "Ipswich": 57, "Bournemouth": 35,
+    # ספרד
     "Real Madrid": 541, "Barcelona": 529, "Atletico Madrid": 530, "Sevilla": 536,
     "Real Betis": 543, "Valencia": 532, "Athletic Club": 531, "Villarreal": 533,
     "Real Sociedad": 548, "Girona": 547, "Osasuna": 727, "Getafe": 546,
     "Rayo Vallecano": 728, "Mallorca": 538, "Las Palmas": 534, "Celta Vigo": 542,
     "Alaves": 720, "Leganes": 723, "Espanyol": 544, "Valladolid": 724,
+    # גרמניה
     "Bayern München": 157, "Borussia Dortmund": 165, "Bayer Leverkusen": 168,
     "RB Leipzig": 173, "Eintracht Frankfurt": 169, "VfB Stuttgart": 172,
     "SC Freiburg": 160, "Werder Bremen": 162, "1899 Hoffenheim": 167,
     "Borussia Mönchengladbach": 163, "Union Berlin": 164, "FC Augsburg": 170,
     "VfL Wolfsburg": 161, "FSV Mainz 05": 178, "Holstein Kiel": 176,
     "FC St. Pauli": 182, "VfL Bochum": 166, "1. FC Heidenheim": 180,
+    # איטליה
     "Inter": 505, "AC Milan": 489, "Juventus": 496, "Napoli": 492,
     "Atalanta": 499, "Lazio": 487, "AS Roma": 497, "Fiorentina": 502,
     "Bologna": 500, "Torino": 503, "Lecce": 867, "Udinese": 494,
     "Genoa": 508, "Cagliari": 488, "Hellas Verona": 504, "Empoli": 511,
-    "Venezia": 517, "Como": 1580, "Parma": 498,"PEC Zwolle": 193, "Ajax": 194, "Willem II": 195,
-    "Excelsior": 196, "PSV Eindhoven": 197, "AZ Alkmaar": 201,
+    "Venezia": 517, "Como": 1580, "Parma": 498,
+    # צרפת
+    "Angers": 77, "Lille": 79, "Lyon": 80, "Marseille": 81,
+    "Nantes": 83, "Nice": 84, "Paris Saint Germain": 85, "Monaco": 91,
+    "Rennes": 94, "Strasbourg": 95, "Toulouse": 96, "Lorient": 97,
+    "Stade Brestois 29": 106, "Auxerre": 108, "Le Havre": 111,
+    "Metz": 112, "Paris FC": 114, "Lens": 116,
+    # הולנד
+    "PEC Zwolle": 193, "Ajax": 194, "Willem II": 195, "Excelsior": 196,
+    "PSV Eindhoven": 197, "De Graafschap": 199, "AZ Alkmaar": 201,
     "Groningen": 202, "NAC Breda": 203, "Fortuna Sittard": 205,
-    "Heracles": 206, "Utrecht": 207, "Feyenoord": 209,
-    "Heerenveen": 210, "GO Ahead Eagles": 410, "NEC Nijmegen": 413,
-    "Twente": 415, "Sparta Rotterdam": 426,"Hapoel Beer Sheva": 563, "Maccabi Tel Aviv": 604, "Beitar Jerusalem": 657,
-"Hapoel Haifa": 2253, "Maccabi Haifa": 4195, "Bnei Sakhnin": 4481,
-"Hapoel Katamon": 4486, "Hapoel Petah Tikva": 4488, "Hapoel Tel Aviv": 4501,
-"Maccabi Netanya": 4505, "Ashdod": 4507, "Ironi Kiryat Shmona": 4510,
-"Ironi Tiberias": 6181, "Maccabi Bnei Raina": 6186,
+    "Heracles": 206, "Utrecht": 207, "Feyenoord": 209, "Heerenveen": 210,
+    "GO Ahead Eagles": 410, "NEC Nijmegen": 413, "Roda": 414, "Twente": 415,
+    "FC Volendam": 416, "Waalwijk": 417, "Almere City FC": 419,
+    "Den Bosch": 421, "Sparta Rotterdam": 426, "Telstar": 427,
+    # ישראל
+    "Hapoel Beer Sheva": 563, "Maccabi Tel Aviv": 604, "Beitar Jerusalem": 657,
+    "Hapoel Haifa": 2253, "Maccabi Haifa": 4195, "Bnei Sakhnin": 4481,
+    "Hapoel Katamon": 4486, "Hapoel Petah Tikva": 4488, "Hapoel Tel Aviv": 4501,
+    "Maccabi Netanya": 4505, "Ashdod": 4507, "Ironi Kiryat Shmona": 4510,
+    "Ironi Tiberias": 6181, "Maccabi Bnei Raina": 6186,
 }
 
 # בחירה
