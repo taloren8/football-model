@@ -457,7 +457,7 @@ if st.button("🔍 נתח משחק", type="primary", use_container_width=True):
     with col1:
         if h2h:
             st.info(f"🔄 H2H: {h2h['ניצחונות_בית']}W / {h2h['תיקו']}D / {h2h['ניצחונות_חוץ']}L | ממוצע {h2h['ממוצע_שערים']} שערים")
-  with col2:
+    with col2:
             if סה_כ_צפוי:
                 if התפלגות and התפלגות["0-1"] >= 50:
                     over_under = "Under 2.5 🔒"
