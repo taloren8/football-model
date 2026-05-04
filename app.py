@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 import statistics
+import math
 
 st.set_page_config(
     page_title="⚽ מנתח משחקי כדורגל",
@@ -147,27 +148,44 @@ def קבל_h2h(id_בית, id_חוץ):
             "ניצחונות_חוץ": ניצחונות_חוץ, "תיקו": תיקו,
             "ממוצע_שערים": round(sum(שערים)/len(שערים), 2) if שערים else 2.0}
 
+def חשב_poisson(lambda_val, k):
+    return (math.exp(-lambda_val) * (lambda_val ** k)) / math.factorial(k)
+
+def חשב_שערים_poisson(קבוצת_בית, קבוצת_חוץ, df):
+    משחקי_בית = df[df["בית"] == קבוצת_בית]
+    משחקי_חוץ = df[df["חוץ"] == קבוצת_חוץ]
+    if len(משחקי_בית) == 0 or len(משחקי_חוץ) == 0: return None
+    התקפת_בית = משחקי_בית["שערי בית"].mean()
+    הגנת_בית = משחקי_בית["שערי חוץ"].mean()
+    התקפת_חוץ = משחקי_חוץ["שערי חוץ"].mean()
+    הגנת_חוץ = משחקי_חוץ["שערי בית"].mean()
+    lambda_בית = (התקפת_בית + הגנת_חוץ) / 2
+    lambda_חוץ = (התקפת_חוץ + הגנת_בית) / 2
+    lambda_סה_כ = lambda_בית + lambda_חוץ
+    p = {k: חשב_poisson(lambda_סה_כ, k) for k in range(11)}
+    p_0_1 = round((p[0] + p[1]) * 100)
+    p_2_3 = round((p[2] + p[3]) * 100)
+    p_4_plus = round(100 - p_0_1 - p_2_3)
+    p_under = round((p[0] + p[1] + p[2]) * 100)
+    p_over = round(100 - p_under)
+    return {
+        "0-1": p_0_1, "2-3": p_2_3, "4+": p_4_plus,
+        "under_2.5": p_under, "over_2.5": p_over,
+        "lambda_סה_כ": round(lambda_סה_כ, 2)
+    }
+
 def חשב_טווח_שערים(קבוצת_בית, קבוצת_חוץ, df):
+    """שיטה משולבת — Poisson לטווח + היסטוריה ל-O/U"""
     משחקי_בית = df[df["בית"] == קבוצת_בית]
     משחקי_חוץ = df[df["חוץ"] == קבוצת_חוץ]
     if len(משחקי_בית) == 0 or len(משחקי_חוץ) == 0: return None, None, None
-    סה_כ = ((משחקי_בית["שערי בית"].mean() + משחקי_חוץ["שערי בית"].mean()) / 2 +
-             (משחקי_חוץ["שערי חוץ"].mean() + משחקי_בית["שערי חוץ"].mean()) / 2)
-    def התפלגות(משחקים):
-        ס = משחקים["שערי בית"] + משחקים["שערי חוץ"]
-        n = len(ס)
-        if n == 0: return {"0-1": 33, "2-3": 34, "4+": 33}
-        return {"0-1": round((ס<=1).sum()/n*100),
-                "2-3": round(((ס>=2)&(ס<=3)).sum()/n*100),
-                "4+": round((ס>=4).sum()/n*100)}
-    ה_בית = התפלגות(משחקי_בית)
-    ה_חוץ = התפלגות(משחקי_חוץ)
-    ה_משוקללת = {ט: round((ה_בית[ט]+ה_חוץ[ט])/2) for ט in ["0-1","2-3","4+"]}
-    טווח_מספרי = "0-1" if סה_כ<=1.5 else "2-3" if סה_כ<=3.5 else "4+"
-    ציונים = {ט: ה_משוקללת[ט] + (20 if ט==טווח_מספרי else 0) for ט in ["0-1","2-3","4+"]}
-    return max(ציונים, key=ציונים.get), round(סה_כ, 2), ה_משוקללת
+    תוצאת_poisson = חשב_שערים_poisson(קבוצת_בית, קבוצת_חוץ, df)
+    if not תוצאת_poisson: return None, None, None
+    התפלגות = {"0-1": תוצאת_poisson["0-1"], "2-3": תוצאת_poisson["2-3"], "4+": תוצאת_poisson["4+"]}
+    טווח_שערים = max(התפלגות, key=התפלגות.get)
+    סה_כ_צפוי = תוצאת_poisson["lambda_סה_כ"]
+    return טווח_שערים, round(סה_כ_צפוי, 2), התפלגות
 
-@st.cache_data(ttl=1800)
 def קבל_קרנות(team_id, league_id, num_matches=5):
     url = "https://v3.football.api-sports.io/fixtures"
     params = {"team": team_id, "league": league_id, "season": SEASON, "last": num_matches, "status": "FT"}
@@ -466,14 +484,19 @@ if st.button("🔍 נתח משחק", type="primary", use_container_width=True):
             ביטחון = "בינוני ⚡"
             צבע = "orange"
 
-        if התפלגות and התפלגות["0-1"] >= 50:
-            over_under = "Under 2.5 🔒"
-        elif התפלגות and (התפלגות["2-3"] + התפלגות["4+"]) >= 60:
-            over_under = "Over 2.5 ⚽"
-        elif סה_כ_צפוי and סה_כ_צפוי > 2.5:
-            over_under = "Over 2.5 ⚽"
+# Over/Under לפי היסטוריה (56% דיוק)
+        def אחוז_over(משחקים):
+            ס = משחקים["שערי בית"] + משחקים["שערי חוץ"]
+            n = len(ס)
+            if n == 0: return 50
+            return round((ס > 2).sum() / n * 100)
+        משחקי_בית_ou = df[df["בית"] == קבוצת_בית]
+        משחקי_חוץ_ou = df[df["חוץ"] == קבוצת_חוץ]
+        אחוז_over_ממוצע = round((אחוז_over(משחקי_בית_ou) + אחוז_over(משחקי_חוץ_ou)) / 2)
+        if אחוז_over_ממוצע >= 50:
+            over_under = f"Over 2.5 ⚽ ({אחוז_over_ממוצע}%)"
         else:
-            over_under = "Under 2.5 🔒"
+            over_under = f"Under 2.5 🔒 ({100-אחוז_over_ממוצע}%)"
 
         הסכמה = False
         if דעה_שנייה:
